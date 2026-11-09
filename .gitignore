@@ -1,0 +1,58 @@
+# Environment & Secrets (NEVER push)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Private research notes & new ideas (DO NOT PUSH)
+08_notes/
+11_new_ideas/
+10_runs/11_new_ideas/
+
+# W&B and Experiment Tracking
+wandb/
+.wandb/
+
+# Heavy Model Checkpoints, Raw Dumps & Outputs (500+ GB)
+09_output/
+**/09_output/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+*.npz
+*.npy
+
+# Allow curated paper checkpoints
+!paper_checkpoints/**
+
+# Figures and generated media (DO NOT PUSH)
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.svg
+
+# Slurm & Execution Logs
+*.log
+*.out
+*.err
+slurm-*.out
+
+# Python byte-code & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+
+# OS / IDE metadata
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo

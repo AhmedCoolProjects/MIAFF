@@ -1,0 +1,768 @@
+scenarios:
+  malware:
+    task: binary_classification
+    splits:
+      train: train.csv
+      dev: dev.csv
+      test: test.csv
+    columns:
+      domain: input
+      target: label
+      ignore:
+        - class
+        - label_int
+        - _error
+        - _elapsed_s
+    labels:
+      negative: legit
+      positive: malicious
+    datasets:
+      - name: threatfox_malware_binary
+        path: ${LOCAL_PATH:-./data}/MIAF_DomainDetection_Infrastructure_Datasets/ThreatFox/malware
+        selected_infra_metadata: 09_output/01_metadata_selection/tasks/malware.txt
+      - name: macformer_malware_binary
+        path: ${LOCAL_PATH:-./data}/MIAF_DomainDetection_Infrastructure_Datasets/MACFormer/malware
+        selected_infra_metadata: 09_output/01_metadata_selection/tasks/malware.txt
+      - name: duben_malware_binary
+        path: ${LOCAL_PATH:-./data}/MIAF_DomainDetection_Infrastructure_Datasets/DeepURLBench/malware
+        selected_infra_metadata: 09_output/01_metadata_selection/tasks/malware.txt
+      - name: dibhran_malware_binary
+        path: ${LOCAL_PATH:-./data}/MIAF_DomainDetection_Infrastructure_Datasets/DataInBriefHranicky/malware
+        selected_infra_metadata: 09_output/01_metadata_selection/tasks/malware.txt
+  phishing:
+    task: binary_classification
+    splits:
+      train: train.csv
+      dev: dev.csv
+      test: test.csv
+    columns:
+      domain: input
+      target: label
+      ignore:
+        - class
+        - label_int
+        - _error
+        - _elapsed_s
+    labels:
+      negative: legit
+      positive: malicious
+    datasets:
+      - name: macformer_phishing_binary
+        path: ${LOCAL_PATH:-./data}/MIAF_DomainDetection_Infrastructure_Datasets/MACFormer/phishing
+        selected_infra_metadata: 09_output/01_metadata_selection/tasks/phishing.txt
+      - name: duben_phishing_binary
+        path: ${LOCAL_PATH:-./data}/MIAF_DomainDetection_Infrastructure_Datasets/DeepURLBench/phishing
+        selected_infra_metadata: 09_output/01_metadata_selection/tasks/phishing.txt
+      - name: dibhran_phishing_binary
+        path: ${LOCAL_PATH:-./data}/MIAF_DomainDetection_Infrastructure_Datasets/DataInBriefHranicky/phishing
+        selected_infra_metadata: 09_output/01_metadata_selection/tasks/phishing.txt
+  malware_family:
+    task: multi_class_classification
+    splits:
+      train: train.csv
+      dev: dev.csv
+      test: test.csv
+    columns:
+      domain: input
+      target: class
+      ignore:
+        - label
+        - label_int
+        - _error
+        - _elapsed_s
+    datasets:
+      - name: threatfox_malware_family
+        path: ${LOCAL_PATH:-./data}/MIAF_DomainDetection_Infrastructure_Datasets/ThreatFox/malware_types
+        selected_infra_metadata: 09_output/01_metadata_selection/tasks/malware_family.txt
+      - name: dibhran_malware_family
+        path: ${LOCAL_PATH:-./data}/MIAF_DomainDetection_Infrastructure_Datasets/DataInBriefHranicky/malware_classes
+        selected_infra_metadata: 09_output/01_metadata_selection/tasks/malware_family.txt
+
+
+models:
+  defaults:
+    embedding_dim: 128
+    drop_prob: 0.2
+
+  Metadata_MLP:
+    hidden_dim: 128
+    out_dim: 64
+    drop_prob: 0.2
+    use_layernorm: true
+    head_hidden_dim: 0
+
+  CharCNN:
+    num_filters: 100
+    kernel_sizes: [3, 4, 5]
+
+  CharLSTM:
+    hidden_dim: 128
+    n_layers: 2
+
+  CharGRU:
+    hidden_dim: 128
+    n_layers: 2
+
+  CharBiLSTM:
+    hidden_dim: 128
+    n_layers: 2
+
+  CharBiGRU:
+    hidden_dim: 128
+    n_layers: 2
+
+  CharCNNBiLSTM:
+    hidden_dim: 128
+    n_layers: 2
+    num_filters: 100
+    kernel_sizes: [3, 4, 5]
+
+  DomURLsBERT:
+    pretrained_path: amahdaouy/DomURLs_BERT
+    drop_prob: 0.2
+
+  CySecBERT:
+    pretrained_path: markusbayer/CySecBERT
+
+  SecBERT:
+    pretrained_path: jackaduma/SecBERT
+
+  SecureBERT:
+    pretrained_path: ehsanaghaei/SecureBERT
+
+  URLBERT:
+    pretrained_path: models/urlbert_model
+
+learning_mlp:
+  model_names:
+    - Metadata_MLP
+  data:
+    include_selected_metadata: true
+    batch_size: 256
+    num_workers: 4
+  training:
+    seed: 42
+    epochs: 12
+    optimizer: adamw
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    gradient_clip_norm: 1.0
+    device: auto
+  validation:
+    monitor: macro_f1
+    patience: 3
+    min_delta: 0.0
+  testing:
+    checkpoint: best
+    binary_metrics:
+      - macro_f1
+      - binary_f1
+      - accuracy
+      - balanced_accuracy
+      - precision
+      - recall
+      - ap
+      - auroc
+      - mcc
+      - tp
+      - fp
+      - tn
+      - fn
+    multi_class_metrics:
+      - macro_f1
+      - weighted_f1
+      - accuracy
+      - balanced_accuracy
+      - macro_precision
+      - macro_recall
+      - ap
+      - auroc
+      - mcc
+  output:
+    directory: 09_output/04_Learning/{model}/{dataset}
+  logging:
+    model:
+      - total_parameters
+      - trainable_parameters
+      - non_trainable_parameters
+      - parameter_size_mb
+      - parameters_by_module
+    wandb:
+      project: miaff
+      group: "{model}"
+      run_name: baseline
+      tags:
+        - "{scenario}"
+        - "{dataset}"
+        - metadata
+    system_info:
+      time: seconds
+      memory: MiB
+    system:
+      - peak_memory_train
+      - peak_memory_val
+      - peak_memory_test
+      - time_train
+      - time_val
+      - time_test
+
+learning_char:
+  model_names:
+    - CharCNN
+    - CharLSTM
+    - CharGRU
+    - CharBiLSTM
+    - CharBiGRU
+    - CharCNNBiLSTM
+  data:
+    include_selected_metadata: false
+    max_length: 64
+    batch_size: 256
+    num_workers: 4
+  training:
+    seed: 42
+    epochs: 12
+    optimizer: adamw
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    gradient_clip_norm: 1.0
+    device: auto
+  validation:
+    monitor: macro_f1
+    patience: 3
+    min_delta: 0.0
+  testing:
+    checkpoint: best
+    binary_metrics:
+      - macro_f1
+      - binary_f1
+      - accuracy
+      - balanced_accuracy
+      - precision
+      - recall
+      - ap
+      - auroc
+      - mcc
+      - tp
+      - fp
+      - tn
+      - fn
+    multi_class_metrics:
+      - macro_f1
+      - weighted_f1
+      - accuracy
+      - balanced_accuracy
+      - macro_precision
+      - macro_recall
+      - ap
+      - auroc
+      - mcc
+  output:
+    directory: 09_output/04_Learning/{model}/{dataset}
+  logging:
+    model:
+      - total_parameters
+      - trainable_parameters
+      - non_trainable_parameters
+      - parameter_size_mb
+      - parameters_by_module
+    wandb:
+      project: miaff
+      group: "{model}"
+      run_name: baseline
+      tags:
+        - "{scenario}"
+        - "{dataset}"
+        - char
+    system_info:
+      time: seconds
+      memory: MiB
+    system:
+      - peak_memory_train
+      - peak_memory_val
+      - peak_memory_test
+      - time_train
+      - time_val
+      - time_test
+
+learning_lang:
+  model_names:
+    # - DomURLsBERT
+    - SecureBERT
+    # - CySecBERT
+    # - SecBERT
+  data:
+    include_selected_metadata: false
+    max_length: 64
+    batch_size: 128
+    num_workers: 4
+  training:
+    seed: 42
+    epochs: 6
+    optimizer: adamw
+    learning_rate: 1.0e-5
+    weight_decay: 0.001
+    gradient_clip_norm: 0.9
+    device: auto
+  validation:
+    monitor: macro_f1
+    patience: 3
+    min_delta: 0.0
+  testing:
+    checkpoint: best
+    binary_metrics:
+      - macro_f1
+      - binary_f1
+      - accuracy
+      - balanced_accuracy
+      - precision
+      - recall
+      - ap
+      - auroc
+      - mcc
+      - tp
+      - fp
+      - tn
+      - fn
+    multi_class_metrics:
+      - macro_f1
+      - weighted_f1
+      - accuracy
+      - balanced_accuracy
+      - macro_precision
+      - macro_recall
+      - ap
+      - auroc
+      - mcc
+  output:
+    directory: 09_output/04_Learning/{model}/{dataset}
+  logging:
+    model:
+      - total_parameters
+      - trainable_parameters
+      - non_trainable_parameters
+      - parameter_size_mb
+      - parameters_by_module
+    wandb:
+      project: miaff
+      group: "{model}"
+      run_name: baseline
+      tags:
+        - "{scenario}"
+        - "{dataset}"
+        - lang
+    system_info:
+      time: seconds
+      memory: MiB
+    system:
+      - peak_memory_train
+      - peak_memory_val
+      - peak_memory_test
+      - time_train
+      - time_val
+      - time_test
+
+combination_components:
+  sampling_strategies:
+    natural: {}
+    class_balanced:
+      replacement: true
+      epoch_size: train_size
+  fusion_methods:
+    concat:
+      head_hidden_dim: 128
+      drop_prob: 0.2
+    gated_residual:
+      fusion_dim: 128
+      head_hidden_dim: 128
+      drop_prob: 0.2
+  class_prior_corrections:
+    none: {}
+  loss_objectives:
+    cross_entropy:
+      label_smoothing: 0.0
+    focal:
+      gamma: 2.0
+    class_weighted_cross_entropy:
+      weighting: inverse_frequency
+      normalize: mean_one
+    logit_adjusted_cross_entropy:
+      tau: 1.0
+
+combinations:
+  N_cat_N_ce:
+    name: "N_cat_N_ce"
+    sampling_strategy: natural
+    fusion_method: concat
+    class_prior_correction: none
+    loss_objective: cross_entropy
+  N_gatedres_N_ce:
+    name: "N_gatedres_N_ce"
+    sampling_strategy: natural
+    fusion_method: gated_residual
+    class_prior_correction: none
+    loss_objective: cross_entropy
+  N_cat_N_focal:
+    name: "N_cat_N_focal"
+    sampling_strategy: natural
+    fusion_method: concat
+    class_prior_correction: none
+    loss_objective: focal
+  N_cat_N_cwce:
+    name: "N_cat_N_cwce"
+    sampling_strategy: natural
+    fusion_method: concat
+    class_prior_correction: none
+    loss_objective: class_weighted_cross_entropy
+  N_cat_N_lace:
+    name: "N_cat_N_lace"
+    sampling_strategy: natural
+    fusion_method: concat
+    class_prior_correction: none
+    loss_objective: logit_adjusted_cross_entropy
+
+
+metadata_categories:
+  rdap:
+    - "rdap_*"
+  dns:
+    - "dns_*"
+  tls:
+    - "tls_*"
+  ip:
+    - "ip_*"
+  cross:
+    - "x_*"
+  all:
+    - "rdap_*"
+    - "dns_*"
+    - "tls_*"
+    - "ip_*"
+    - "x_*"
+
+learning_combinations:
+  lang_metadata:
+    lang_models:
+      - SecureBERT
+      - CySecBERT
+      - DomURLsBERT
+      # - SecBERT
+    metadata_model: Metadata_MLP
+    metadata_categories: 
+      - all
+    combinations:
+      # - N_cat_N_ce
+      # - N_gatedres_N_ce
+      # - N_cat_N_focal
+      - N_cat_N_cwce
+      - N_cat_N_lace
+    data:
+      max_length: 64
+      batch_size: 128
+      num_workers: 4
+    training:
+      seed: 42
+      epochs: 6
+      optimizer: adamw
+      learning_rate: 1.0e-5
+      weight_decay: 0.001
+      gradient_clip_norm: 0.9
+      device: auto
+    validation:
+      monitor: macro_f1
+      patience: 3
+      min_delta: 0.0
+    testing:
+      checkpoint: best
+      binary_metrics:
+        - macro_f1
+        - binary_f1
+        - accuracy
+        - balanced_accuracy
+        - precision
+        - recall
+        - ap
+        - auroc
+        - mcc
+        - tp
+        - fp
+        - tn
+        - fn
+      multi_class_metrics:
+        - macro_f1
+        - weighted_f1
+        - accuracy
+        - balanced_accuracy
+        - macro_precision
+        - macro_recall
+        - ap
+        - auroc
+        - mcc
+    output:
+      directory: 09_output/04_Learning/Fusion/{combination}/{model}/{dataset}
+    logging:
+      model:
+        - total_parameters
+        - trainable_parameters
+        - non_trainable_parameters
+        - parameter_size_mb
+        - parameters_by_module
+
+      wandb:
+        project: miaff
+        group: "{model}"
+        run_name: "{combination}"
+        tags:
+          - "{scenario}"
+          - "{dataset}"
+          - "{model}"
+          - "{combination}"
+          - lang
+          - metadata
+          - fusion
+      system:
+        - peak_memory_train
+        - peak_memory_val
+        - peak_memory_test
+        - time_train
+        - time_val
+        - time_test
+  char_metadata:
+    char_models:
+      - CharCNN
+      - CharLSTM
+      - CharGRU
+      - CharBiLSTM
+      - CharBiGRU
+      - CharCNNBiLSTM
+    metadata_model: Metadata_MLP
+    metadata_categories: 
+      - all
+    combinations:
+      # - N_cat_N_ce
+      # - N_gatedres_N_ce
+      - N_cat_N_focal
+      - N_cat_N_cwce
+      - N_cat_N_lace
+    data:
+      max_length: 64
+      batch_size: 256
+      num_workers: 4
+    training:
+      seed: 42
+      epochs: 12
+      optimizer: adamw
+      learning_rate: 0.001
+      weight_decay: 0.0001
+      gradient_clip_norm: 1.0
+      device: auto
+    validation:
+      monitor: macro_f1
+      patience: 3
+      min_delta: 0.0
+    testing:
+      checkpoint: best
+      binary_metrics:
+        - macro_f1
+        - binary_f1
+        - accuracy
+        - balanced_accuracy
+        - precision
+        - recall
+        - ap
+        - auroc
+        - mcc
+        - tp
+        - fp
+        - tn
+        - fn
+      multi_class_metrics:
+        - macro_f1
+        - weighted_f1
+        - accuracy
+        - balanced_accuracy
+        - macro_precision
+        - macro_recall
+        - ap
+        - auroc
+        - mcc
+    output:
+      directory: 09_output/04_Learning/Fusion/{combination}/{model}/{dataset}
+    logging:
+      model:
+        - total_parameters
+        - trainable_parameters
+        - non_trainable_parameters
+        - parameter_size_mb
+        - parameters_by_module
+
+      wandb:
+        project: miaff
+        group: "{model}"
+        run_name: "{combination}"
+        tags:
+          - "{scenario}"
+          - "{dataset}"
+          - "{model}"
+          - "{combination}"
+          - fusion
+      system:
+        - peak_memory_train
+        - peak_memory_val
+        - peak_memory_test
+        - time_train
+        - time_val
+        - time_test
+
+
+
+reporting:
+  tasks:
+    - name: malware_binary
+    - name: phishing_binary
+    - name: malware_family
+  effectiveness:
+    rows:
+      - group
+    subrows:
+      - run
+    columns:
+      - dataset
+      - macro_f1
+      - binary_f1
+      - accuracy
+      - balanced_accuracy
+      - auroc
+      - mcc
+
+ablation:
+  model:
+    # - Metadata_MLP
+    - CharCNN
+  categories:
+    only:
+      - rdap
+      - dns
+      - tls
+      - ip
+      - cross
+    drop:
+      - rdap
+      - dns
+      - tls
+      - ip
+      - cross
+    combine:
+      - name: "rdap_dns"
+        categories:
+          - rdap
+          - dns
+  logging:
+    wandb:
+      project: "dom-2"
+      group: "{model}_ablation"
+      run_name: "{mode}_{combine_name}"
+      tags:
+        - metadata
+        - ablation
+  reporting:
+    datasets:
+      # - name: threatfox_malware_binary
+      # - name: macformer_malware_binary
+      # - name: duben_malware_binary
+      # - name: dibhran_malware_binary
+      # - name: threatfox_malware_family
+      # - name: dibhran_malware_family
+      - name: macformer_phishing_binary
+      - name: duben_phishing_binary
+      - name: dibhran_phishing_binary
+    metrics:
+      - macro_f1
+    output:
+      file: 09_output/05_Reporting/ablation_{combine_name}.csv
+      columns:
+        - all_categories
+        - only_rdap
+        - only_dns
+        - only_tls
+        - only_ip
+        - only_cross
+        - drop_rdap
+        - drop_dns
+        - drop_tls
+        - drop_ip
+        - drop_cross
+        - delta_only_rdap_vs_all
+        - delta_only_dns_vs_all
+        - delta_only_tls_vs_all
+        - delta_only_ip_vs_all
+        - delta_only_cross_vs_all
+        - delta_drop_rdap_vs_all
+        - delta_drop_dns_vs_all
+        - delta_drop_tls_vs_all
+        - delta_drop_ip_vs_all
+        - delta_drop_cross_vs_all
+      rows:
+        - dataset
+
+interpretability:
+  datasets:
+    - name: threatfox_malware_binary
+    - name: macformer_malware_binary
+    - name: duben_malware_binary
+    - name: dibhran_malware_binary
+    - name: macformer_phishing_binary
+    - name: duben_phishing_binary
+    - name: dibhran_phishing_binary
+    - name: threatfox_malware_family
+    - name: dibhran_malware_family
+  methods:
+    - name: "SHAP"
+      abbreviation: SHAP
+    - name: "Integrated Gradients"
+      abbreviation: IG
+  examples_to_explain:
+    binary: 3
+    multi_class: 3
+    criteria: "binary: pick 3 true positives, multi_class: pick 3 samples that are correctly classified"
+  levels:
+    modality:
+      model:
+        - CharCNN
+      combination:
+        - N_cat_N_ce
+      description: "For each example give percentage of contribution of string vs. metadata."
+    category:
+      model:
+        - Metadata_MLP
+      description: "For each example give percentage of contribution of each category."
+    feature:
+      model:
+        - Metadata_MLP
+      top: 5
+      description: "For each example give percentage of contribution of each feature of the top 5 most contributing features."
+  contributions:
+    - name: absolute
+    - name: positive_only
+    - name: signed
+  output:
+    file: 09_output/06_Interpreting/Interpretability/{contribution}/{method}_{dataset}.csv
+    rows:
+      - example
+      - level
+    columns:
+      - value
+      - contribution_percentage
+      - contribution_score
+      - contribution_rank
+
+
+
+
+
+
+
+
+
+
+
